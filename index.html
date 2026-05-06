@@ -539,7 +539,7 @@ body {
       <div class="wpp-row">
         <div class="field"><label>📱 WhatsApp do Produtor</label><input type="text" id="whatsappNum" placeholder="Preenchido automaticamente do cadastro" readonly style="background:#e6f2fa;color:var(--azul);font-family:'DM Mono',monospace;font-weight:600;cursor:default;"></div>
         <button class="btn btn-gold" onclick="gerarPDF()">📄 Baixar PDF</button>
-        <button class="btn btn-wpp" onclick="enviarWhatsApp()">💬 WhatsApp</button>
+        <button class="btn btn-wpp" onclick="enviarWhatsAppComPDF()">💬 WhatsApp + PDF</button>
         <button class="btn btn-outline" onclick="novoCalculo()">🔄 Novo</button>
       </div>
     </div>
@@ -554,7 +554,7 @@ const LOGO_B64 = 'iVBORw0KGgoAAAANSUhEUgAABVIAAAOICAYAAAA0NgoNAAEAAElEQVR4nOzdd5
 
 const CONCENTRADOS = ['— Selecione —','Milho Moído','Farelo de Soja','Farelo de Trigo','Farelo de Algodão 28%','Sorgo Moído Fubá','Raspa de Mandioca','Polpa Cítrica','Caroço de Algodão','Refinazil','Milheto','Protéico Energético 40','Cama de Frango','Torta Gorda de Algodão','Ureia','Calcário','Ionóforo','Outro Concentrado'];
 const VOLUMOSOS  = ['— Selecione —','Silagem de Milho','Silagem de Sorgo','Silagem de Cana','Silagem de Capim','Cana de Açúcar Picada','Bagaço de Cana','Cevada','Outro Volumoso'];
-const NUCLEOS    = ['— Selecione —','Fosbovi Confinamento Plus','Fosbovi Confinamento','Fosbovi Confinamento 10','Fosbovi Conf. com Leveduras','Fosbovi Confinamento Prime','Fosbovi Confinamento Prime 5.0','Fosbovi Confinamento Prime DDG','Fosbovi Semiconfinamento 10 NE','Núcleo BT','Núcleo BTP','Fórmula Cliente','Outro Suplemento Mineral'];
+const NUCLEOS    = ['— Selecione —','Fosbovi Confinamento','Fosbovi Confinamento Plus','Fosbovi Confinamento Prime','Fosbovi Confinamento Prime 5.0','Fosbovi Confinamento 5.0 N','Fosbovi Confinamento Prime DDG','Fosbovi Confinamento Prime N','Fosbovi Semiconfinamento 10 NE','Fosbovi Semiconfinamento Prime N','Fórmula Cliente','Outro Suplemento Mineral'];
 
 document.getElementById('dataVisita').valueAsDate = new Date();
 
@@ -721,136 +721,63 @@ function mostrarRelatorio() {
 }
 
 function gerarPDF() {
-  const {jsPDF}=window.jspdf;
-  const doc=new jsPDF('p','mm','a4');
-  const d=calcularTudo();
+  const doc = gerarPDFBlob();
   const produtor=V('nomeProdutor')||'Não informado';
-  const fazenda =V('nomeFazenda')||'—';
-  const mun     =V('municipio')||'—';
-  const tecnico =V('nomeTecnico')||'—';
-  const cargo   =V('cargoTecnico')||'—';
-  const registro=V('registro')||'—';
-  const data    =getDate();
-  const isL=d.lucAnim>=0;
-
-  const azul=[0,91,153], azulE=[0,63,107], verde=[46,125,50];
-  const ouro=[230,168,23], bco=[255,255,255], cinza=[244,246,249], txt=[26,35,50];
-  const corR=isL?verde:[198,40,40];
-
-  // Header
-  doc.setFillColor(...azulE); doc.rect(0,0,210,44,'F');
-  doc.setFillColor(...azul);  doc.rect(0,34,210,10,'F');
-
-  // Logo no PDF
-  try { doc.addImage('data:image/png;base64,'+LOGO_B64,'PNG',14,8,50,18); } catch(e){}
-
-  doc.setTextColor(...bco);
-  doc.setFont('helvetica','bold'); doc.setFontSize(14);
-  doc.text('RELATÓRIO DE VIABILIDADE ECONÔMICA', 72,16);
-  doc.setFont('helvetica','normal'); doc.setFontSize(9);
-  doc.setTextColor(180,210,240);
-  doc.text('Análise completa do sistema de confinamento',72,23);
-  doc.setTextColor(...bco); doc.setFontSize(8);
-  doc.text('Data: '+data, 152,39);
-
-  let y=52;
-
-  // Bloco produtor
-  doc.setFillColor(230,242,252);
-  doc.roundedRect(14,y,182,24,4,4,'F');
-  doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.setTextColor(...azulE);
-  doc.text('PROPRIETÁRIO',18,y+8); doc.text('FAZENDA',80,y+8); doc.text('MUNICÍPIO',145,y+8);
-  doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.setTextColor(...txt);
-  doc.text(produtor,18,y+18); doc.text(fazenda,80,y+18); doc.text(mun,145,y+18);
-  y+=32;
-
-  // KPI boxes
-  const boxes=[[`LUCRO / ANIMAL`,fmt(d.lucAnim),corR],[`LUCRO TOTAL`,fmt(d.lucTot),corR],['RENTABILIDADE',fmtN(d.rentMes*100,2)+'% a.m.',ouro],['INVESTIMENTO TOTAL',fmt(d.invTot),azul]];
-  let bx=14;
-  boxes.forEach(([l,v,cor])=>{
-    doc.setFillColor(...cor); doc.roundedRect(bx,y,43,22,4,4,'F');
-    doc.setTextColor(...bco); doc.setFont('helvetica','bold'); doc.setFontSize(7);
-    doc.text(l,bx+3,y+8); doc.setFontSize(9.5); doc.text(v,bx+3,y+18);
-    bx+=47;
-  });
-  y+=32;
-
-  // Estudo econômico
-  doc.setTextColor(...azulE); doc.setFont('helvetica','bold'); doc.setFontSize(10);
-  doc.text('ESTUDO ECONÔMICO',14,y); y+=4;
-  const lc2=isL?[232,245,233]:[253,234,234], lct=isL?verde:[198,40,40];
-  doc.autoTable({
-    startY:y,
-    head:[['Indicador','Valor']],
-    body:[
-      ['Nº de Animais',`${fmtN(d.numAnim,0)} cabeças`],
-      ['Peso Entrada → Abate',`${fmtN(d.pesoE,0)} → ${fmtN(d.pesoA,0)} kg`],
-      ['@ Entrada / Abate',`${fmtN(d.at_e,2)} → ${fmtN(d.at_a,2)} @`],
-      ['@ Produzidas / animal',`${fmtN(d.at_p,2)} @`],
-      ['Custo Animal Magro',fmt(d.custoMagro)],
-      ['Diária (com operacional)',fmt(d.diarCom)],
-      ['Custo Confinamento / animal',fmt(d.custoConf)],
-      ['Custo Animal Pronto',fmt(d.custoP)],
-      ['Receita por Animal',fmt(d.recAnim)],
-      ['Custo R$/kg de Ganho',fmt(d.custo_kg)],
-      ['Custo da @ Produzida',fmt(d.custo_at)],
-      ['Ponto de Equilíbrio',fmt(d.ponto_eq)+'/arroba'],
-      ['Relação de Troca',fmtN(d.relTroca,2)],
-      ['Rentabilidade',fmtN(d.rentMes*100,2)+'% a.m.'],
-      ['Lucro por Animal',fmt(d.lucAnim)],
-      ['Lucro Total Estimado',fmt(d.lucTot)],
-    ],
-    theme:'striped',
-    headStyles:{fillColor:azul,textColor:bco,fontStyle:'bold',fontSize:9},
-    bodyStyles:{fontSize:9,textColor:txt},
-    columnStyles:{1:{halign:'right',fontStyle:'bold'}},
-    didParseCell(data){if(data.row.index>=14){data.cell.styles.fillColor=lc2;data.cell.styles.textColor=lct;data.cell.styles.fontStyle='bold';data.cell.styles.fontSize=10;}}
-  });
-  y=doc.lastAutoTable.finalY+8;
-
-  // Dieta
-  if(y>240){doc.addPage();y=20;}
-  doc.setTextColor(...azulE); doc.setFont('helvetica','bold'); doc.setFontSize(10);
-  doc.text('COMPOSIÇÃO DA DIETA',14,y); y+=4;
-  const all=[...d.conc.map(i=>({...i,tipo:'Concentrado'})),...d.nuc.map(i=>({...i,tipo:'Núcleo/Mineral'})),...d.vol.map(i=>({...i,tipo:'Volumoso'}))];
-  const dietaB=all.length?all.map(i=>[i.nome,i.tipo,`${fmtN(i.kg,2)} kg/dia`,fmt(i.custo)+'/kg',fmt(i.cd)]):[['Sem ingredientes','','','','']];
-  doc.autoTable({startY:y,head:[['Ingrediente','Tipo','Consumo/dia','Custo/kg','Custo diário']],body:[...dietaB,['Total','','','',fmt(d.diarSem)]],theme:'striped',headStyles:{fillColor:[46,100,60],textColor:bco,fontStyle:'bold',fontSize:9},bodyStyles:{fontSize:9,textColor:txt},columnStyles:{2:{halign:'center'},3:{halign:'right'},4:{halign:'right',fontStyle:'bold'}}});
-  y=doc.lastAutoTable.finalY+8;
-
-  // Investimento
-  if(y>240){doc.addPage();y=20;}
-  doc.setTextColor(...azulE); doc.setFont('helvetica','bold'); doc.setFontSize(10);
-  doc.text('INVESTIMENTO TOTAL',14,y); y+=4;
-  doc.autoTable({startY:y,head:[['Item','Valor']],body:[[`Animais (${fmtN(d.numAnim,0)} cab.)`,fmt(d.invAnim)],[`Alimentação (${fmtN(d.dias,0)} dias)`,fmt(d.invAlim)],['TOTAL GERAL',fmt(d.invTot)]],theme:'striped',headStyles:{fillColor:ouro,textColor:bco,fontStyle:'bold',fontSize:9},bodyStyles:{fontSize:9,textColor:txt},columnStyles:{1:{halign:'right',fontStyle:'bold'}},didParseCell(data){if(data.row.index===2){data.cell.styles.fillColor=ouro;data.cell.styles.textColor=bco;data.cell.styles.fontStyle='bold';data.cell.styles.fontSize=11;}}});
-
-  // Rodapé
-  const pg=doc.internal.getNumberOfPages();
-  for(let i=1;i<=pg;i++){
-    doc.setPage(i);
-    doc.setFillColor(...azulE); doc.rect(0,282,210,15,'F');
-    doc.setTextColor(...bco); doc.setFont('helvetica','bold'); doc.setFontSize(7.5);
-    doc.text('TORTUGA by dsm-firmenich',14,290);
-    doc.setFont('helvetica','normal');
-    doc.text(`${cargo}: ${tecnico}  |  ${registro}`,68,290);
-    doc.text(`Pág. ${i}/${pg}`,196,290,{align:'right'});
-  }
-
-  doc.save(`Viabilidade_${produtor.replace(/\s+/g,'_')}_${data.replace(/\//g,'-')}.pdf`);
+  const data=getDate();
+  const nomearq=`Viabilidade_${produtor.replace(/\s+/g,'_')}_${data.replace(/\//g,'-')}.pdf`;
+  doc.save(nomearq);
 }
 
-function enviarWhatsApp() {
-  const d=calcularTudo();
+
+function enviarWhatsApp() { enviarWhatsAppComPDF(); }
+
+function enviarWhatsAppComPDF() {
   const produtor=V('nomeProdutor')||'Produtor';
   const fazenda =V('nomeFazenda');
-  const tecnico =V('nomeTecnico')||'Técnico';
+  const tecnico =V('nomeTecnico')||'Tecnico';
   const cargo   =V('cargoTecnico');
   const tel     =(V('whatsappNum')||V('telefone')).replace(/\D/g,'');
   const data    =getDate();
+  const d       =calcularTudo();
   const isL     =d.lucAnim>=0;
-  const msg=`🐄 *TORTUGA — Relatório de Viabilidade*\n\nOlá, *${produtor}*${fazenda?` — ${fazenda}`:''}!\nSegue aqui o seu relatório de viabilidade econômica do confinamento, gerado em ${data}.\n\n━━━━━━━━━━━━━━━━━━━━━\n📊 *RESULTADO ECONÔMICO*\n━━━━━━━━━━━━━━━━━━━━━\n🐂 Animais: *${fmtN(d.numAnim,0)} cab.* | Período: *${fmtN(d.dias,0)} dias*\n⚖️ Peso: ${fmtN(d.pesoE,0)} → ${fmtN(d.pesoA,0)} kg (GPD ${fmtN(d.gpd,1)} kg/dia)\n\n💵 Custo animal pronto: ${fmt(d.custoP)}\n💵 Receita por animal: ${fmt(d.recAnim)}\n${isL?'✅':'❌'} *Lucro por animal: ${fmt(d.lucAnim)}*\n${isL?'✅':'❌'} *Lucro total estimado: ${fmt(d.lucTot)}*\n\n━━━━━━━━━━━━━━━━━━━━━\n📈 *INDICADORES*\n━━━━━━━━━━━━━━━━━━━━━\n📌 Rentabilidade: *${fmtN(d.rentMes*100,2)}% a.m.*\n📌 Ponto de equilíbrio: *${fmt(d.ponto_eq)}/arroba*\n📌 Custo da @ produzida: ${fmt(d.custo_at)}\n📌 Investimento total: *${fmt(d.invTot)}*\n\n━━━━━━━━━━━━━━━━━━━━━\n_${cargo}: *${tecnico}*_\n_Confinamento Tortuga by dsm-firmenich_`;
-  const url=tel?`https://wa.me/55${tel}?text=${encodeURIComponent(msg)}`:`https://wa.me/?text=${encodeURIComponent(msg)}`;
-  window.open(url,'_blank');
+
+  // 1. Gera e baixa o PDF automaticamente
+  const doc = gerarPDFBlob();
+  const nomearq=`Viabilidade_${produtor.replace(/\s+/g,'_')}_${data.replace(/\//g,'-')}.pdf`;
+  doc.save(nomearq);
+
+  // 2. Monta mensagem WhatsApp com resumo + instrução de anexar o PDF
+  const msg=`🐄 *TORTUGA — Relatório de Viabilidade*
+
+Olá, *${produtor}*${fazenda?` — ${fazenda}`:''}!
+Segue em anexo o PDF com o seu relatório de viabilidade econômica do confinamento, gerado em ${data}.
+
+━━━━━━━━━━━━━━━━━━━━━
+📊 *RESULTADO*
+━━━━━━━━━━━━━━━━━━━━━
+🐂 *${fmtN(d.numAnim,0)} animais* | ${fmtN(d.dias,0)} dias de confinamento
+
+${isL?'✅':'❌'} *Lucro por animal: ${fmt(d.lucAnim)}*
+${isL?'✅':'❌'} *Lucro total: ${fmt(d.lucTot)}*
+📈 Rentabilidade: ${fmtN(d.rentMes*100,2)}% a.m.
+
+_${cargo}: *${tecnico}*_
+_Confinamento Tortuga by dsm-firmenich_`;
+
+  // 3. Aguarda 1.5s para o PDF baixar, depois abre WhatsApp
+  setTimeout(()=>{
+    const url=tel
+      ?`https://wa.me/55${tel}?text=${encodeURIComponent(msg)}`
+      :`https://wa.me/?text=${encodeURIComponent(msg)}`;
+    window.open(url,'_blank');
+
+    // 4. Mostra instrução para anexar o PDF
+    setTimeout(()=>{
+      alert('📎 PDF baixado automaticamente!\n\nNo WhatsApp que abriu, clique no ícone de ANEXO (📎) e selecione o PDF que acabou de ser baixado para enviar junto com a mensagem.');
+    }, 1500);
+  }, 800);
 }
+
 
 function novoCalculo(){document.getElementById('resultado').style.display='none';window.scrollTo({top:0,behavior:'smooth'});}
 
