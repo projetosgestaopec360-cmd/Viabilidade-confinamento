@@ -720,6 +720,142 @@ function mostrarRelatorio() {
   setTimeout(()=>document.getElementById('resultado').scrollIntoView({behavior:'smooth'}),100);
 }
 
+function gerarPDFBlob() {
+  const {jsPDF}=window.jspdf;
+  const doc=new jsPDF('p','mm','a4');
+  const d=calcularTudo();
+  const produtor=V('nomeProdutor')||'Não informado';
+  const fazenda =V('nomeFazenda')||'—';
+  const mun     =V('municipio')||'—';
+  const tecnico =V('nomeTecnico')||'—';
+  const cargo   =V('cargoTecnico')||'—';
+  const registro=V('registro')||'—';
+  const data    =getDate();
+  const isL=d.lucAnim>=0;
+
+  const azul=[0,91,153],azulE=[0,63,107],verde=[46,125,50];
+  const ouro=[230,168,23],bco=[255,255,255],txt=[26,35,50];
+  const corR=isL?verde:[198,40,40];
+
+  // Header
+  doc.setFillColor(...azulE); doc.rect(0,0,210,44,'F');
+  doc.setFillColor(...azul);  doc.rect(0,34,210,10,'F');
+  try { doc.addImage('data:image/png;base64,'+LOGO_B64,'PNG',14,8,50,18); } catch(e){}
+  doc.setTextColor(...bco);
+  doc.setFont('helvetica','bold'); doc.setFontSize(13);
+  doc.text('RELATORIO DE VIABILIDADE ECONOMICA',70,16);
+  doc.setFont('helvetica','normal'); doc.setFontSize(9);
+  doc.setTextColor(180,210,240);
+  doc.text('Analise completa do sistema de confinamento',70,23);
+  doc.setTextColor(...bco); doc.setFontSize(8);
+  doc.text('Data: '+data,152,39);
+
+  let y=52;
+
+  // Bloco produtor
+  doc.setFillColor(230,242,252);
+  doc.roundedRect(14,y,182,24,4,4,'F');
+  doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.setTextColor(...azulE);
+  doc.text('PROPRIETARIO',18,y+8); doc.text('FAZENDA',80,y+8); doc.text('MUNICIPIO',145,y+8);
+  doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.setTextColor(...txt);
+  doc.text(produtor,18,y+18); doc.text(fazenda,80,y+18); doc.text(mun,145,y+18);
+  y+=32;
+
+  // KPI boxes
+  const boxes=[['LUCRO / ANIMAL',fmt(d.lucAnim),corR],['LUCRO TOTAL',fmt(d.lucTot),corR],['RENTABILIDADE',fmtN(d.rentMes*100,2)+'% a.m.',ouro],['INVESTIMENTO TOTAL',fmt(d.invTot),azul]];
+  let bx=14;
+  boxes.forEach(([l,v,cor])=>{
+    doc.setFillColor(...cor); doc.roundedRect(bx,y,43,22,4,4,'F');
+    doc.setTextColor(...bco); doc.setFont('helvetica','bold'); doc.setFontSize(7);
+    doc.text(l,bx+3,y+8); doc.setFontSize(9.5); doc.text(v,bx+3,y+18);
+    bx+=47;
+  });
+  y+=32;
+
+  // Estudo econômico
+  doc.setTextColor(...azulE); doc.setFont('helvetica','bold'); doc.setFontSize(10);
+  doc.text('ESTUDO ECONOMICO',14,y); y+=4;
+  const lc2=isL?[232,245,233]:[253,234,234], lct=isL?verde:[198,40,40];
+  doc.autoTable({
+    startY:y,
+    head:[['Indicador','Valor']],
+    body:[
+      ['No de Animais',fmtN(d.numAnim,0)+' cabecas'],
+      ['Peso Entrada / Abate',fmtN(d.pesoE,0)+' kg / '+fmtN(d.pesoA,0)+' kg'],
+      ['@ Entrada / Abate',fmtN(d.at_e,2)+' @ / '+fmtN(d.at_a,2)+' @'],
+      ['@ Produzidas / animal',fmtN(d.at_p,2)+' @'],
+      ['Custo Animal Magro',fmt(d.custoMagro)],
+      ['Diaria (com operacional)',fmt(d.diarCom)],
+      ['Custo Confinamento / animal',fmt(d.custoConf)],
+      ['Custo Animal Pronto',fmt(d.custoP)],
+      ['Receita por Animal',fmt(d.recAnim)],
+      ['Custo R$/kg de Ganho',fmt(d.custo_kg)],
+      ['Custo da @ Produzida',fmt(d.custo_at)],
+      ['Ponto de Equilibrio',fmt(d.ponto_eq)+'/arroba'],
+      ['Relacao de Troca',fmtN(d.relTroca,2)],
+      ['Rentabilidade',fmtN(d.rentMes*100,2)+'% a.m.'],
+      ['Lucro por Animal',fmt(d.lucAnim)],
+      ['Lucro Total Estimado',fmt(d.lucTot)],
+    ],
+    theme:'striped',
+    headStyles:{fillColor:azul,textColor:bco,fontStyle:'bold',fontSize:9},
+    bodyStyles:{fontSize:9,textColor:txt,font:'helvetica'},
+    columnStyles:{1:{halign:'right',fontStyle:'bold',font:'helvetica'}},
+    didParseCell(data){if(data.row.index>=14){data.cell.styles.fillColor=lc2;data.cell.styles.textColor=lct;data.cell.styles.fontStyle='bold';data.cell.styles.fontSize=10;}}
+  });
+  y=doc.lastAutoTable.finalY+8;
+
+  // Dieta
+  if(y>240){doc.addPage();y=20;}
+  doc.setTextColor(...azulE); doc.setFont('helvetica','bold'); doc.setFontSize(10);
+  doc.text('COMPOSICAO DA DIETA',14,y); y+=4;
+  const all=[...d.conc.map(i=>({...i,tipo:'Concentrado'})),...d.nuc.map(i=>({...i,tipo:'Nucleo/Mineral'})),...d.vol.map(i=>({...i,tipo:'Volumoso'}))];
+  const dietaB=all.length?all.map(i=>[i.nome,i.tipo,fmtN(i.kg,2)+' kg/dia',fmt(i.custo)+'/kg',fmt(i.cd)]):[['Sem ingredientes','','','','']];
+  doc.autoTable({
+    startY:y,
+    head:[['Ingrediente','Tipo','Consumo/dia','Custo/kg','Custo diario']],
+    body:[...dietaB,['Total','','','',fmt(d.diarSem)]],
+    theme:'striped',
+    headStyles:{fillColor:[46,100,60],textColor:bco,fontStyle:'bold',fontSize:9},
+    bodyStyles:{fontSize:9,textColor:txt,font:'helvetica'},
+    columnStyles:{2:{halign:'center'},3:{halign:'right'},4:{halign:'right',fontStyle:'bold'}}
+  });
+  y=doc.lastAutoTable.finalY+8;
+
+  // Investimento
+  if(y>240){doc.addPage();y=20;}
+  doc.setTextColor(...azulE); doc.setFont('helvetica','bold'); doc.setFontSize(10);
+  doc.text('INVESTIMENTO TOTAL',14,y); y+=4;
+  doc.autoTable({
+    startY:y,
+    head:[['Item','Valor']],
+    body:[
+      ['Animais ('+fmtN(d.numAnim,0)+' cab.)',fmt(d.invAnim)],
+      ['Alimentacao ('+fmtN(d.dias,0)+' dias)',fmt(d.invAlim)],
+      ['TOTAL GERAL',fmt(d.invTot)]
+    ],
+    theme:'striped',
+    headStyles:{fillColor:ouro,textColor:bco,fontStyle:'bold',fontSize:9},
+    bodyStyles:{fontSize:9,textColor:txt,font:'helvetica'},
+    columnStyles:{1:{halign:'right',fontStyle:'bold'}},
+    didParseCell(data){if(data.row.index===2){data.cell.styles.fillColor=ouro;data.cell.styles.textColor=bco;data.cell.styles.fontStyle='bold';data.cell.styles.fontSize=11;}}
+  });
+
+  // Rodapé
+  const pg=doc.internal.getNumberOfPages();
+  for(let i=1;i<=pg;i++){
+    doc.setPage(i);
+    doc.setFillColor(...azulE); doc.rect(0,282,210,15,'F');
+    doc.setTextColor(...bco); doc.setFont('helvetica','bold'); doc.setFontSize(7.5);
+    doc.text('TORTUGA by dsm-firmenich',14,290);
+    doc.setFont('helvetica','normal');
+    doc.text(cargo+': '+tecnico+'  |  '+registro,68,290);
+    doc.text('Pag. '+i+'/'+pg,196,290,{align:'right'});
+  }
+
+  return doc;
+}
+
 function gerarPDF() {
   const doc = gerarPDFBlob();
   const produtor=V('nomeProdutor')||'Não informado';
