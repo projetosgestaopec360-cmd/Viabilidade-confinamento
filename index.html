@@ -375,7 +375,7 @@ body {
         </div>
         <div class="fr2">
           <div class="field"><label>Município / Estado</label><input type="text" id="municipio" placeholder="Ex: Quixadá — CE"></div>
-          <div class="field"><label>Telefone do Produtor</label><input type="text" id="telefone" placeholder="(85) 99999-9999"></div>
+          <div class="field"><label>Telefone do Produtor</label><input type="text" id="telefone" placeholder="(85) 99999-9999" oninput="syncWhatsApp(this.value)"></div>
         </div>
       </div>
       <div>
@@ -537,7 +537,7 @@ body {
     <div class="share-card no-print">
       <div class="share-title">📤 Compartilhar com o Produtor</div>
       <div class="wpp-row">
-        <div class="field"><label>📱 WhatsApp do Produtor (só números)</label><input type="text" id="whatsappNum" placeholder="Ex: 85999998888"></div>
+        <div class="field"><label>📱 WhatsApp do Produtor</label><input type="text" id="whatsappNum" placeholder="Preenchido automaticamente do cadastro" readonly style="background:#e6f2fa;color:var(--azul);font-family:'DM Mono',monospace;font-weight:600;cursor:default;"></div>
         <button class="btn btn-gold" onclick="gerarPDF()">📄 Baixar PDF</button>
         <button class="btn btn-wpp" onclick="enviarWhatsApp()">💬 WhatsApp</button>
         <button class="btn btn-outline" onclick="novoCalculo()">🔄 Novo</button>
@@ -585,6 +585,12 @@ function coletarDieta(id, qtd) {
     if(nome&&kg>0) r.push({nome,kg,custo:cu,cd:kg*cu});
   }
   return r;
+}
+
+function syncWhatsApp(val) {
+  const nums = val.replace(/\D/g,'');
+  const campo = document.getElementById('whatsappNum');
+  if(campo) campo.value = nums;
 }
 
 function calcular() {
@@ -838,7 +844,7 @@ function enviarWhatsApp() {
   const fazenda =V('nomeFazenda');
   const tecnico =V('nomeTecnico')||'Técnico';
   const cargo   =V('cargoTecnico');
-  const tel     =V('whatsappNum').replace(/\D/g,'');
+  const tel     =(V('whatsappNum')||V('telefone')).replace(/\D/g,'');
   const data    =getDate();
   const isL     =d.lucAnim>=0;
   const msg=`🐄 *TORTUGA — Relatório de Viabilidade*\n\nOlá, *${produtor}*${fazenda?` — ${fazenda}`:''}!\nSegue aqui o seu relatório de viabilidade econômica do confinamento, gerado em ${data}.\n\n━━━━━━━━━━━━━━━━━━━━━\n📊 *RESULTADO ECONÔMICO*\n━━━━━━━━━━━━━━━━━━━━━\n🐂 Animais: *${fmtN(d.numAnim,0)} cab.* | Período: *${fmtN(d.dias,0)} dias*\n⚖️ Peso: ${fmtN(d.pesoE,0)} → ${fmtN(d.pesoA,0)} kg (GPD ${fmtN(d.gpd,1)} kg/dia)\n\n💵 Custo animal pronto: ${fmt(d.custoP)}\n💵 Receita por animal: ${fmt(d.recAnim)}\n${isL?'✅':'❌'} *Lucro por animal: ${fmt(d.lucAnim)}*\n${isL?'✅':'❌'} *Lucro total estimado: ${fmt(d.lucTot)}*\n\n━━━━━━━━━━━━━━━━━━━━━\n📈 *INDICADORES*\n━━━━━━━━━━━━━━━━━━━━━\n📌 Rentabilidade: *${fmtN(d.rentMes*100,2)}% a.m.*\n📌 Ponto de equilíbrio: *${fmt(d.ponto_eq)}/arroba*\n📌 Custo da @ produzida: ${fmt(d.custo_at)}\n📌 Investimento total: *${fmt(d.invTot)}*\n\n━━━━━━━━━━━━━━━━━━━━━\n_${cargo}: *${tecnico}*_\n_Confinamento Tortuga by dsm-firmenich_`;
