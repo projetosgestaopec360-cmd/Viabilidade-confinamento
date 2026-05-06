@@ -765,7 +765,7 @@ function gerarPDFBlob() {
   // Header
   doc.setFillColor(...azulE); doc.rect(0,0,210,44,'F');
   doc.setFillColor(...azul);  doc.rect(0,34,210,10,'F');
-  try { doc.addImage('data:image/png;base64,'+LOGO_B64,'PNG',14,8,50,18); } catch(e){}
+  try { doc.addImage('data:image/png;base64,'+LOGO_B64,'PNG',14,6,27,18); } catch(e){}
   doc.setTextColor(...bco);
   doc.setFont('helvetica','bold'); doc.setFontSize(13);
   doc.text('RELATORIO DE VIABILIDADE ECONOMICA',70,16);
@@ -867,6 +867,7 @@ function gerarPDFBlob() {
   });
 
   // Aquisição de Insumos
+  y=doc.lastAutoTable.finalY+8;
   if(y>200){doc.addPage();y=20;}
   doc.setTextColor(...azulE); doc.setFont('helvetica','bold'); doc.setFontSize(10);
   doc.text('PROGRAMACAO DE AQUISICAO DE INSUMOS',14,y); y+=4;
