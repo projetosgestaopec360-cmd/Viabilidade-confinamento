@@ -526,6 +526,11 @@ body {
       <table class="rel-table" id="tabela-dieta"></table>
     </div>
 
+    <div class="card" style="margin-bottom:20px;">
+      <div class="card-header"><div class="card-icon azul">📦</div><div class="card-title">Programação de Aquisição de Insumos</div></div>
+      <table class="rel-table" id="tabela-aquisicao"></table>
+    </div>
+
     <div class="assinatura-box">
       <div class="sig-item"><span>Responsável Técnico</span><strong id="rel-tecnico">—</strong></div>
       <div class="sig-item"><span>Cargo</span><strong id="rel-cargo">—</strong></div>
@@ -535,12 +540,10 @@ body {
     </div>
 
     <div class="share-card no-print">
-      <div class="share-title">📤 Compartilhar com o Produtor</div>
-      <div class="wpp-row">
-        <div class="field"><label>📱 WhatsApp do Produtor</label><input type="text" id="whatsappNum" placeholder="Preenchido automaticamente do cadastro" readonly style="background:#e6f2fa;color:var(--azul);font-family:'DM Mono',monospace;font-weight:600;cursor:default;"></div>
-        <button class="btn btn-gold" onclick="gerarPDF()">📄 Baixar PDF</button>
-        <button class="btn btn-wpp" onclick="enviarWhatsAppComPDF()">💬 WhatsApp + PDF</button>
-        <button class="btn btn-outline" onclick="novoCalculo()">🔄 Novo</button>
+      <div class="btn-row" style="justify-content:center;">
+        <button class="btn btn-gold btn-lg" onclick="gerarPDF()">📄 Baixar PDF</button>
+        <button class="btn btn-wpp btn-lg" onclick="enviarWhatsAppComPDF()">💬 Enviar pelo WhatsApp</button>
+        <button class="btn btn-outline btn-lg" onclick="novoCalculo()">🔄 Novo Cálculo</button>
       </div>
     </div>
 
@@ -634,7 +637,7 @@ function calcularTudo() {
   const custo_kg=(pesoA-pesoE)>0?custoConf/(pesoA-pesoE):0;
   const custo_at=at_p>0?custoConf/at_p:0;
   const ponto_eq=at_a>0?custoP/at_a:0;
-  const relTroca=precoGorda>0?reposicao/precoGorda:0;
+  const relTroca=reposicao>0?recAnim/reposicao:0;
   const rentMes=(dias>0&&custoP>0)?(lucAnim/custoP)/(dias/30):0;
   const invAlim=diarSem*dias*numAnim, invAnim=custoMagro*numAnim;
   return {numAnim,pesoE,rcE,pesoA,rcA,gpd,dias,at_e,at_a,at_p,
@@ -716,7 +719,29 @@ function mostrarRelatorio() {
     <thead><tr><th>Ingrediente</th><th>Tipo</th><th>Consumo/dia</th><th>Custo/kg</th><th>Custo/dia</th></tr></thead>
     <tbody>${rows}<tr class="subtotal"><td colspan="2">Total Custo Diário / animal</td><td>${fmtN(all.reduce((s,i)=>s+i.kg,0),2)} kg</td><td>—</td><td>${fmt(d.diarSem)}</td></tr></tbody>`;
 
-  document.getElementById('resultado').style.display='block';
+  
+  // TABELA AQUISICAO DE INSUMOS
+  function rowsAq(itens, tipo) {
+    if (!itens.length) return '';
+    let out = '<tr><td colspan="4" style="background:var(--cinza-f);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--texto-sec);padding:8px 14px;">' + tipo + '</td></tr>';
+    itens.forEach(function(i) {
+      var tons = (i.kg * d.dias * d.numAnim) / 1000;
+      var vlr  = tons * 1000 * i.custo;
+      out += '<tr><td>' + i.nome + '</td><td style="text-align:center;font-family:DM Mono,monospace">' + fmtN(i.kg,2) + ' kg/dia</td><td style="text-align:center;font-family:DM Mono,monospace">' + fmtN(tons,3) + ' ton</td><td>' + fmt(vlr) + '</td></tr>';
+    });
+    return out;
+  }
+  var totalInvAlim = d.conc.concat(d.nuc).concat(d.vol).reduce(function(s,i){ return s + ((i.kg*d.dias*d.numAnim)/1000*1000*i.custo); }, 0);
+  document.getElementById('tabela-aquisicao').innerHTML =
+    '<thead><tr><th>Ingrediente</th><th style="text-align:center">Consumo/dia</th><th style="text-align:center">Aquisição (ton)</th><th>Valor Investido</th></tr></thead>' +
+    '<tbody>' +
+    rowsAq(d.conc, '🌽 Concentrado') +
+    rowsAq(d.nuc,  '💊 Núcleo / Suplemento Mineral') +
+    rowsAq(d.vol,  '🌿 Volumoso') +
+    '<tr class="total-row"><td colspan="2">Total Investimento em Alimentação</td><td style="text-align:center">—</td><td>' + fmt(totalInvAlim) + '</td></tr>' +
+    '</tbody>';
+
+document.getElementById('resultado').style.display='block';
   setTimeout(()=>document.getElementById('resultado').scrollIntoView({behavior:'smooth'}),100);
 }
 
@@ -840,6 +865,42 @@ function gerarPDFBlob() {
     columnStyles:{1:{halign:'right',fontStyle:'bold'}},
     didParseCell(data){if(data.row.index===2){data.cell.styles.fillColor=ouro;data.cell.styles.textColor=bco;data.cell.styles.fontStyle='bold';data.cell.styles.fontSize=11;}}
   });
+
+  // Aquisição de Insumos
+  if(y>200){doc.addPage();y=20;}
+  doc.setTextColor(...azulE); doc.setFont('helvetica','bold'); doc.setFontSize(10);
+  doc.text('PROGRAMACAO DE AQUISICAO DE INSUMOS',14,y); y+=4;
+
+  var aqBody = [];
+  [['Concentrado', d.conc], ['Nucleo/Mineral', d.nuc], ['Volumoso', d.vol]].forEach(function(g){
+    g[1].forEach(function(i){
+      var tons = (i.kg * d.dias * d.numAnim) / 1000;
+      var vlr  = tons * 1000 * i.custo;
+      aqBody.push([i.nome, g[0], fmtN(i.kg,2)+' kg/dia', fmtN(tons,3)+' ton', fmt(vlr)]);
+    });
+  });
+  var totalAq = d.conc.concat(d.nuc).concat(d.vol).reduce(function(s,i){ return s+((i.kg*d.dias*d.numAnim)/1000*1000*i.custo);},0);
+  if(aqBody.length) {
+    aqBody.push(['Total Investimento em Alimentacao','','','',fmt(totalAq)]);
+    doc.autoTable({
+      startY:y,
+      head:[['Ingrediente','Tipo','Consumo/dia','Aquisicao (ton)','Valor Investido']],
+      body:aqBody,
+      theme:'striped',
+      headStyles:{fillColor:[0,63,107],textColor:bco,fontStyle:'bold',fontSize:9},
+      bodyStyles:{fontSize:9,textColor:txt,font:'helvetica'},
+      columnStyles:{2:{halign:'center'},3:{halign:'center',fontStyle:'bold'},4:{halign:'right',fontStyle:'bold'}},
+      didParseCell:function(data){
+        if(data.row.index===aqBody.length-1){
+          data.cell.styles.fillColor=azul;
+          data.cell.styles.textColor=bco;
+          data.cell.styles.fontStyle='bold';
+          data.cell.styles.fontSize=10;
+        }
+      }
+    });
+    y=doc.lastAutoTable.finalY+8;
+  }
 
   // Rodapé
   const pg=doc.internal.getNumberOfPages();
